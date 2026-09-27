@@ -1,0 +1,748 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-space-950: #030712;
+  --color-space-900: #060d1f;
+  --color-space-800: #0a1428;
+  --color-hud: #38bdf8;
+  --color-hud-dim: rgba(56, 189, 248, 0.35);
+
+  /* 折叠面板 (Collapsible) 展开/收起: 高度过渡依赖 radix 注入的 --radix-collapsible-content-height */
+  --animate-collapsible-down: collapsible-down 200ms ease-out;
+  --animate-collapsible-up: collapsible-up 200ms ease-out;
+
+  @keyframes collapsible-down {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+  @keyframes collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
+}
+
+:root {
+  /* ---- 项目设计 token (HUD 深空风格, 与 frontend2 色板同源) ---- */
+  --bg: #030712;
+  --panel: rgba(5, 12, 28, 0.92);
+  --border: rgba(56, 189, 248, 0.35);
+  --text: #dbeafe;
+  --dim: #7da2c9;
+  --accent: #38bdf8;
+  --accent-bright: #7dd3fc;
+  --warn: #fb923c;
+  --ok: #34d399;
+  --danger: #f87171;
+  --menu-active: rgba(56, 189, 248, 0.15);
+  --menu-hover: rgba(56, 189, 248, 0.08);
+  --anim-dur: 300ms;
+  --anim-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* ---- 布局常量 ---- */
+  --left-col-w: 400px;
+  --right-col-w: 400px;
+  /* 由 BottomControlDock 的 ResizeObserver 按 TimelineBar 实际高度写入。 */
+  --timeline-h: 0px;
+
+  /* ---- shadcn/ui 主题 token (常驻深色, 与设计色板同源) ---- */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: #0a1428;
+  --card-foreground: var(--text);
+  --popover: rgba(6, 13, 31, 0.97);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: #04202b;
+  --secondary: rgba(56, 189, 248, 0.12);
+  --secondary-foreground: var(--text);
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: var(--dim);
+  --accent-foreground: #ffffff;
+  --destructive: #f87171;
+  --input: rgba(56, 189, 248, 0.3);
+  --ring: var(--accent);
+  --chart-1: #38bdf8;
+  --chart-2: #fb923c;
+  --chart-3: #facc15;
+  --chart-4: #34d399;
+  --chart-5: #f87171;
+  --radius: 0.5rem;
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: #04202b;
+  --sidebar-accent: var(--menu-hover);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--accent);
+}
+
+/* 有符号时间速率：左侧倒放、中间暂停、右侧正放。 */
+.time-rate-slider {
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(
+    90deg,
+    rgba(56, 189, 248, 0.85) 0%,
+    rgba(125, 211, 252, 0.35) 47%,
+    rgba(226, 232, 240, 0.9) 50%,
+    rgba(251, 146, 60, 0.4) 53%,
+    rgba(251, 146, 60, 0.9) 100%
+  );
+}
+
+.time-rate-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid #e0f2fe;
+  background: #38bdf8;
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.95);
+}
+
+.time-rate-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid #e0f2fe;
+  background: #38bdf8;
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.95);
+}
+
+/* ===== 窄屏分档 (两档: 1440 / 1280) =====
+   左右栏是 shrink-0 定宽 flex 项, 收窄它们即为中间场地区让出宽度;
+   档位取值以「1280 视口下中间区域仍 ≥ 680px」为下限反推 —— 中间区域里的
+   浮层各有自身最小宽度 (坐标系切换栏约 470px, 时间轴固定件约 376px)。
+   必须写在 :root 之后且不进任何 @layer: 同特异性下靠源码顺序覆盖默认值。
+   1280 以下不在支持范围内 (左右栏已无收窄余地, 需改抽屉式布局)。 */
+@media (max-width: 1440px) {
+  :root {
+    --left-col-w: 340px;
+    --right-col-w: 340px;
+  }
+}
+@media (max-width: 1280px) {
+  :root {
+    --left-col-w: 300px;
+    --right-col-w: 300px;
+  }
+}
+
+/* 图例锚点 (相对中间区域定位)。
+   宽屏: 右上角, 与顶部居中的二级页签并排。
+   ≤1440: 中间区域已容不下两者并排 (页签约 464px + 图例 180px + 边距 > 680px),
+          改挂到态势标注下方水平居中 —— 该处各页都是空的, 且不与
+          底部坐标系切换栏或时间轴相交。--caption-top 由 SceneOverlays 按页传入。 */
+.scene-layers-anchor {
+  position: absolute;
+  z-index: 15;
+  top: 0;
+  right: 16px;
+}
+@media (max-width: 1440px) {
+  .scene-layers-anchor {
+    top: calc(var(--caption-top, 0px) + 26px);
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* 注意: 不要在此写未分层 (unlayered) 的全局 margin/padding 重置 ——
+   Tailwind v4 的 utility 位于 @layer utilities, 未分层样式层级更高,
+   会把所有 padding/margin 工具类压成 0。重置职责交给 @layer base 内的规则。 */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  /* 字体用长属性而非 font 简写: font 简写会重置 font-variant-*,
+     且压缩器重排声明后简写总在最后, tabular-nums 会被无声吞掉。
+     Geist Variable 打头: 拉丁/数字走 Geist (带 tnum 等宽数字特性),
+     中文回落 PingFang/雅黑 —— 此前 Geist 只被导入未生效 */
+  font-family:
+    'Geist Variable', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  /* 全站等宽数字: 时钟/倒计时/坐标等数值在每秒刷新时不再因
+     "1" 与 "0" 字宽不同而左右抖动 (Geist 支持 tnum 特性) */
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* ---- scrollbar ---- */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 35, 70, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.45);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.65);
+}
+
+/* ===== HUD 大屏面板体系 =====
+   .hud-* 表面类统一放在 @layer components —— 层级低于 utilities，
+   任何 Tailwind 工具类 (背景/边框/阴影/圆角等) 都能按需覆盖
+   表面默认值。这是"组件库 (shadcn) + 自定义 HUD 皮肤"共存的架构前提：
+   此前未分层版本的优先级压过工具类，导致样式无法组合、只能不断复制。 */
+@layer components {
+  /* ===== HUD 大屏面板 (扫纹背景 + 顶部流光 + 底部微光) ===== */
+  .hud-panel {
+    position: relative;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(56, 189, 248, 0.025) 0 1px,
+        transparent 1px 4px
+      ),
+      linear-gradient(160deg, rgba(13, 27, 52, 0.86), rgba(5, 12, 28, 0.92));
+    border: 1px solid rgba(56, 189, 248, 0.1);
+    box-shadow:
+      inset 0 0 28px rgba(14, 116, 214, 0.1),
+      inset 0 1px 0 rgba(148, 220, 255, 0.14),
+      0 0 18px rgba(8, 34, 78, 0.6);
+    backdrop-filter: blur(6px);
+  }
+  .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(103, 232, 249, 0.95),
+      transparent
+    );
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.9));
+    pointer-events: none;
+  }
+  .hud-panel::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 22%;
+    right: 22%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(56, 189, 248, 0.5),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  /* 菜单按钮背板: 沿用面板的扫描纹理 + 深空渐变 + 毛玻璃。
+     独立成类而非直接加 .hud-panel，避免其 border/描边/::before 流光
+     干扰按钮自身的状态样式。 */
+  .hud-btn {
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(56, 189, 248, 0.03) 0 1px,
+        transparent 1px 4px
+      ),
+      linear-gradient(160deg, rgba(13, 27, 52, 0.85), rgba(5, 12, 28, 0.9));
+    backdrop-filter: blur(6px);
+  }
+  /* 选中态: 面板背板上叠加青蓝渐变提亮 */
+  .hud-btn-on {
+    background:
+      linear-gradient(180deg, rgba(56, 189, 248, 0.4), rgba(2, 132, 199, 0.12)),
+      repeating-linear-gradient(
+        0deg,
+        rgba(56, 189, 248, 0.03) 0 1px,
+        transparent 1px 4px
+      ),
+      linear-gradient(160deg, rgba(13, 27, 52, 0.85), rgba(5, 12, 28, 0.9));
+  }
+
+  /* HUD 四角高亮 + 角尖亮点 */
+  .hud-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: #67e8f9;
+    border-style: solid;
+    border-width: 0;
+    filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.9));
+    pointer-events: none;
+  }
+  .hud-corner::before {
+    content: '';
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: #a5f3fc;
+    box-shadow: 0 0 5px #22d3ee;
+  }
+  .hud-corner.tl {
+    top: -1px;
+    left: -1px;
+    border-top-width: 2px;
+    border-left-width: 2px;
+  }
+  .hud-corner.tr {
+    top: -1px;
+    right: -1px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+  }
+  .hud-corner.bl {
+    bottom: -1px;
+    left: -1px;
+    border-bottom-width: 2px;
+    border-left-width: 2px;
+  }
+  .hud-corner.br {
+    bottom: -1px;
+    right: -1px;
+    border-bottom-width: 2px;
+    border-right-width: 2px;
+  }
+  .hud-corner.tl::before {
+    top: 0;
+    left: 0;
+  }
+  .hud-corner.tr::before {
+    top: 0;
+    right: 0;
+  }
+  .hud-corner.bl::before {
+    bottom: 0;
+    left: 0;
+  }
+  .hud-corner.br::before {
+    bottom: 0;
+    right: 0;
+  }
+
+  .hud-title {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+  }
+}
+
+.glow-text {
+  text-shadow:
+    0 0 10px rgba(56, 189, 248, 0.9),
+    0 0 30px rgba(56, 189, 248, 0.45);
+}
+
+.title-gradient {
+  background: #fff;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.55));
+}
+
+/* ===== 七段数码管电子钟 (DSEG7 Classic, 字体本地打包于 public/fonts) ===== */
+@font-face {
+  font-family: 'DSEG7 Classic';
+  src: url('/fonts/DSEG7Classic-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DSEG7 Classic';
+  src: url('/fonts/DSEG7Classic-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+/* 数码管数字: 固定字宽 + 关闭连字, ghost 层与点亮层用同一 letter-spacing 才能像素对齐 */
+.dseg7 {
+  font-family: 'DSEG7 Classic', 'Geist Variable', monospace;
+  font-weight: 700;
+  font-variant-ligatures: none;
+  letter-spacing: 0.06em;
+}
+/* 点亮数字的青蓝辉光 (LED 发光感) */
+.seg-glow {
+  text-shadow:
+    0 0 6px rgba(125, 211, 252, 0.95),
+    0 0 16px rgba(56, 189, 248, 0.6),
+    0 0 30px rgba(56, 189, 248, 0.3);
+}
+/* 冒号每秒闪烁 (电子钟标志性动效); steps 硬切换不渐隐 */
+@keyframes seg-colon-blink {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.12;
+  }
+}
+.seg-colon-blink {
+  animation: seg-colon-blink 1s steps(1, end) infinite;
+}
+
+/* ===== 动效 ===== */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 1.6s ease-in-out infinite;
+}
+
+/* 选中态底部放射光线: 中心点向两侧展开 */
+@keyframes ray-grow {
+  from {
+    transform: translateX(-50%) scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 1;
+  }
+}
+.animate-ray-grow {
+  animation: ray-grow 0.35s var(--anim-ease) both;
+}
+
+@keyframes risk-blink {
+  0%,
+  100% {
+    box-shadow:
+      0 0 6px rgba(248, 113, 113, 0.8),
+      inset 0 0 4px rgba(248, 113, 113, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(248, 113, 113, 1),
+      inset 0 0 10px rgba(248, 113, 113, 0.7);
+  }
+}
+.animate-risk-blink {
+  animation: risk-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(400%);
+  }
+}
+.scan-overlay::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  height: 30%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(56, 189, 248, 0.06),
+    transparent
+  );
+  animation: scan-line 7s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-float-in {
+  animation: float-in 0.5s ease-out both;
+}
+
+/* ---- Loading: 雷达扫描 + 轨道环绕 ---- */
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(56, 189, 248, 0.06) 25%,
+    rgba(56, 189, 248, 0.18) 50%,
+    rgba(56, 189, 248, 0.06) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s linear infinite;
+  border-radius: 2px;
+}
+
+/* ---- 面板过渡动画 (通用入场/退场) ---- */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes slide-out-left {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes slide-out-right {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes slide-in-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes slide-out-bottom {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.anim-slide-left-enter {
+  animation: slide-in-left var(--anim-dur) var(--anim-ease) both;
+}
+.anim-slide-left-leave {
+  animation: slide-out-left var(--anim-dur) var(--anim-ease) both;
+}
+.anim-slide-right-enter {
+  animation: slide-in-right var(--anim-dur) var(--anim-ease) both;
+}
+.anim-slide-right-leave {
+  animation: slide-out-right var(--anim-dur) var(--anim-ease) both;
+}
+.anim-slide-bottom-enter {
+  animation: slide-in-bottom var(--anim-dur) var(--anim-ease) both;
+}
+.anim-slide-bottom-leave {
+  animation: slide-out-bottom var(--anim-dur) var(--anim-ease) both;
+}
+.anim-fade-enter {
+  animation: fade-in var(--anim-dur) var(--anim-ease) both;
+}
+.anim-fade-leave {
+  animation: fade-out var(--anim-dur) var(--anim-ease) both;
+}
+
+/* ---- 3D label overlay ---- */
+#labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+.lbl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 12px;
+  color: #e0f0ff;
+  text-shadow:
+    0 0 6px rgba(0, 0, 0, 0.9),
+    0 0 3px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgba(6, 13, 31, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.lbl.small {
+  font-size: 11px;
+  color: #c9dff5;
+}
+
+/* 选中小行星标签: 橙色高亮 + 外发光, 与场景光圈/图例「选中」色一致 */
+.lbl.sel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.55);
+  background: rgba(251, 146, 60, 0.12);
+  text-shadow:
+    0 0 8px rgba(251, 146, 60, 0.7),
+    0 0 3px rgba(0, 0, 0, 0.9);
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  /* shadcn 的 bg-accent 悬浮底色映射到 --menu-hover, 主色为项目 --accent */
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--menu-hover);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* 应用常驻深色: 主题值已直接定义在 :root, 此处仅声明配色方案 */
+.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

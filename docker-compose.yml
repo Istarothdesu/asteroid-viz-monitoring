@@ -1,0 +1,72 @@
+# sta-intra 单镜像部署: 前端静态资源 + FastAPI API 同源 (内网离线口径)
+#
+# 单机 Docker:
+#   docker compose up -d --build
+# Swarm 集群:
+#   docker stack deploy -c docker-compose.yml sta-intra
+#   (stack deploy 不执行 build, 需先构建镜像并分发到各节点, 见 DEPLOY.md)
+#
+# 与旧版编排的差异: 不再起 PostgreSQL —— 后端默认走 SQLite 单文件
+# (backend/db.py), 数据以镜像内置种子库 + 数据卷持久化; 需要 Postgres 时
+# 设 DATABASE_URL 并把本文件的 volumes/environment 相应调整。
+
+services:
+  sta-intra:
+    image: sta-intra:0.2.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # 内网无外网出口: 关闭定时同步 / 首启补数 / SBDB 现查 (by-des 未命中直接 404)
+      SYNC_ENABLED: "false"
+      # SQLite 落盘目录, 必须与下面 volume 的容器内挂载点一致
+      DATA_DIR: /app/data
+      FRONTEND_DIST: /app/static
+      TZ: UTC
+    ports:
+      # ingress (默认): Swarm 下集群任意节点 IP:8000 都能访问;
+      # 只想在承载节点开放就改成 mode: host
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: ingress
+    volumes:
+      # 命名卷保存 SQLite: 升级/重建容器不丢数据。
+      # 注意 Swarm 的命名卷是「节点本地」的, 因此下面用 placement 把副本钉在固定节点。
+      - sta-data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    # 单机 compose 用这个; Swarm 忽略 restart, 只认 deploy.restart_policy
+    restart: unless-stopped
+    deploy:
+      # 必须单副本: SQLite 单文件 + 进程内 APScheduler, 多副本会各写各的库、
+      # 同步任务重复注册, 数据直接分裂。要横向扩容请拆后端 + 换 Postgres。
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+        reservations:
+          memory: 512m
+      placement:
+        constraints:
+          # 单副本 + 节点本地数据卷 → 钉死在一个节点上, 否则任务漂移到别的
+          # 节点就等于换了一份空库 (entrypoint 会重新播种, 数据回退到镜像版本)。
+          # 多 manager 集群建议换成具体节点: node.hostname == your-node-name
+          - node.role == manager
+
+volumes:
+  sta-data:

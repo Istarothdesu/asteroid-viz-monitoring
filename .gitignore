@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Editor history / IDE
+.history/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# 改造前的原始代码备份 (仅本地留存, 不入库)
+.backup/
+
+# OS
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local env
+*.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# SPICE 内核 (大体积第三方二进制, 由 backend/download_kernels.py 获取)
+backend/kernels/
+
+demo/
+backend/.cache/
+.prewarm/
+*.db-wal
+*.db-shm
+.env
+.env.*

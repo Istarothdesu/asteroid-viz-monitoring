@@ -1,0 +1,29 @@
+[project]
+name = "sta-intra-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "httpx>=0.27.0",
+    "sqlalchemy>=2.0.0",
+    "greenlet>=3.0.0",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.20.0",
+    "apscheduler>=3.10.0",
+    "scipy>=1.18.1",
+    "astropy>=7.2,<9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "httpx"]
+# 星历烘焙 (数据工厂专用): 仅外网出包机需要, 运行时镜像不安装
+bake = ["spiceypy>=6.0.0"]
+
+[tool.uv]
+# 脚本式应用, 不作为包安装
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

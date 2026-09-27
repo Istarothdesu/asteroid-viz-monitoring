@@ -1,0 +1,75 @@
+{
+	"name": "three-tile",
+	"version": "0.12.1",
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"main": "./dist/index.umd.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.umd.cjs"
+		},
+		"./plugin": {
+			"types": "./dist/plugin/index.d.ts",
+			"import": "./dist/plugin/index.js",
+			"require": "./dist/plugin/index.js"
+		}
+	},
+	"license": "MIT",
+	"author": {
+		"name": "GuoJF",
+		"email": "hz_gjf@163.com"
+	},
+	"description": "A lightweight tile map using threejs",
+	"scripts": {
+		"dev": "npm run dev --workspace=packages/demo",
+		"build": "npm run build:lib && npm run build:plugin && node copy-dist.js",
+		"build:lib": "npm run build --workspace=packages/lib",
+		"build:demo": "npm run build --workspace=packages/demo",
+		"build:plugin": "npm run build --workspace=packages/plugin",
+		"format": "prettier --write \"**/*.{ts,json,md}\"",
+		"docs": "npm run docs --workspace=packages/lib && npm run docs --workspace=packages/plugin"
+	},
+	"devDependencies": {
+		"@microsoft/api-extractor": "^7.58.9",
+		"@types/node": "^22.13.14",
+		"@types/three": "0.183.1",
+		"fs-extra": "^11.3.0",
+		"prettier": "^3.8.1",
+		"typedoc": "^0.28.16",
+		"typescript": "^5.7.3",
+		"vite": "6.3.0",
+		"vite-plugin-dts": "^5.0.3"
+	},
+	"peerDependencies": {
+		"three": "0.183.1"
+	},
+	"workspaces": [
+		"packages/*"
+	],
+	"keywords": [
+		"three",
+		"gis",
+		"tile",
+		"map",
+		"3D",
+		"cesium"
+	],
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org/",
+		"access": "public"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sxguojf/three-tile.git"
+	},
+	"bugs": {
+		"url": "https://github.com/sxguojf/three-tile/issues"
+	},
+	"homepage": "https://github.com/sxguojf/three-tile#readme"
+}
